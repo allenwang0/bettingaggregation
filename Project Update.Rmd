@@ -1,0 +1,260 @@
+---
+title: "Stats 100 Project update"
+author: "Allen Wang"
+date: "2023-05-15"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(stats)
+library(ggfortify)
+library(fpc)
+library(factoextra)
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(pROC)
+library(e1071)
+```
+
+```{r}
+soccer <- read.csv("/Users/allenwang/Downloads/FootballDataEurope.csv")
+```
+
+```{r}
+ggplot(data = soccer, aes(x = league_name, fill = league_name)) +
+  geom_bar(color = "black") +
+  labs(title = "League", x = "Categories", y = "Frequency") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(data = soccer, aes(x = country_name, fill = country_name)) +
+  geom_bar(color = "black") +
+  labs(title = "League", x = "Categories", y = "Frequency") +
+  theme_minimal()
+```
+
+```{r}
+soccer_num <- soccer[complete.cases(soccer), sapply(soccer, is.numeric)]
+```
+
+```{r}
+pca <- prcomp(soccer_num, scale. = TRUE)
+```
+
+```{r}
+autoplot(pca)
+```
+
+```{r}
+autoplot(pca, data = soccer_num, colour = "stage", frame = TRUE, loadings = TRUE)
+```
+
+```{r}
+fviz_pca_ind(pca, geom = "point", pointsize = 3, col.ind = as.factor(soccer_num$stage),
+             palette = "jco", addEllipses = TRUE, legend.title = "Stage")
+```
+
+```{r}
+biplot(pca, choices = c(1, 2), scale = 1)
+```
+
+```{r}
+
+```
+
+
+
+
+
+```{r}
+soccer_scaled<-as.data.frame(scale(soccer_num))
+```
+
+
+```{r}
+tot_withinss <- map_dbl(1:10,  function(k){
+  model <- kmeans(x = soccer_scaled, centers = k)
+  model$tot.withinss
+})
+```
+
+```{r}
+elbow_df <- data.frame(
+  k = 1:10,
+  tot_withinss = tot_withinss
+)
+```
+
+```{r}
+ggplot(elbow_df, aes(x = k, y = tot_withinss)) +
+  geom_line() + geom_point()+
+  scale_x_continuous(breaks = 1:10)
+```
+
+
+
+```{r}
+k_3 <- kmeans(soccer_scaled, 3, nstart = 25)
+```
+
+```{r}
+fviz_cluster(kmeans(soccer_scaled, centers = 3), geom = "point", data = soccer_scaled)
+```
+
+
+```{r}
+set.seed(100)
+trainIndex <- createDataPartition(soccer_num$target, p = 0.7, list = FALSE)
+train1 <- soccer_num[trainIndex, ]
+test1 <- soccer_num[-trainIndex, ]
+```
+
+
+```{r}
+columns_to_remove <- c("target", "diff_goals", "away_team_goal", "home_team_goal")
+train1_features <- train1[, !(names(train1) %in% columns_to_remove)]
+train1_target <- as.factor(train1$target)
+```
+
+```{r}
+rf_1 <- randomForest(x = train1_features, y = train1_target)
+```
+
+```{r}
+print(rf_1)
+```
+
+```{r}
+predictions1 <- predict(rf_1, newdata = test1)
+```
+
+```{r}
+predictions1
+```
+
+```{r}
+importance <- importance(rf_1)
+```
+
+```{r}
+print(importance)
+```
+
+
+```{r}
+varImpPlot(rf_1)
+```
+
+
+
+
+
+
+```{r}
+set.seed(200)
+trainIndex <- createDataPartition(soccer_num$diff_goals, p = 0.7, list = FALSE)
+train2 <- soccer_num[trainIndex, ]
+test2 <- soccer_num[-trainIndex, ]
+```
+
+
+```{r}
+columns_to_remove <- c("target", "diff_goals", "away_team_goal", "home_team_goal", "id")
+train2_features <- train2[, !(names(train2) %in% columns_to_remove)]
+train2_target <- train2$diff_goals
+```
+
+```{r}
+rf_2 <- randomForest(x = train2_features, y = train2_target)
+```
+
+```{r}
+print(rf_2)
+```
+
+```{r}
+predictions2 <- predict(rf_2, newdata = test2)
+```
+
+```{r}
+predictions2
+```
+
+```{r}
+importance2 <- importance(rf_2)
+```
+
+```{r}
+print(importance2)
+```
+
+
+```{r}
+varImpPlot(rf_2)
+```
+
+
+
+
+
+
+```{r}
+glm1 <- glm(train1_target ~ ., data = train1_features, family = binomial)
+```
+
+```{r}
+summary(glm1)
+```
+
+```{r}
+predict2_probs <- predict(glm1, newdata = test1, type = "response")
+
+predict2 <- ifelse(predict2_probs > 0.5, 1, 0)
+```
+
+
+```{r}
+accuracy <- mean(predict2 == test1$target)
+```
+
+
+```{r}
+accuracy
+```
+
+```{r}
+auc <- roc(test1$target, predict2_probs)$auc
+```
+
+```{r}
+confusion <- confusionMatrix(factor(predict2), factor(test1$target))
+precision <- confusion$byClass["Pos Pred Value"]
+recall <- confusion$byClass["Sensitivity"]
+f1_score <- confusion$byClass["F1"]
+```
+
+```{r}
+plot(confusion$table, main = "Confusion Matrix", xlab = "Predicted", ylab = "Actual")
+```
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
